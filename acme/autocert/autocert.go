@@ -255,9 +255,11 @@ func (m *Manager) GetCertificate(hello *tls.ClientHelloInfo) (*tls.Certificate, 
 	if name == "" {
 		return nil, errors.New("acme/autocert: missing server name")
 	}
-	if !strings.Contains(strings.Trim(name, "."), ".") {
-		return nil, errors.New("acme/autocert: server name component count invalid")
-	}
+  if name != "localhost" {
+    if !strings.Contains(strings.Trim(name, "."), ".") {
+      return nil, errors.New("acme/autocert: server name component count invalid")
+    }
+  }
 
 	// Note that this conversion is necessary because some server names in the handshakes
 	// started by some clients (such as cURL) are not converted to Punycode, which will
@@ -468,6 +470,10 @@ func (m *Manager) cert(ctx context.Context, ck certKey) (*tls.Certificate, error
 	return cert, nil
 }
 
+func (m *Manager) CacheGetByDomain(ctx context.Context, domain string) (*tls.Certificate, error) {
+  return m.cacheGet(ctx, certKey{domain: domain})
+}
+
 // cacheGet always returns a valid certificate, or an error otherwise.
 // If a cached certificate exists but is not valid, ErrCacheMiss is returned.
 func (m *Manager) cacheGet(ctx context.Context, ck certKey) (*tls.Certificate, error) {
@@ -515,6 +521,10 @@ func (m *Manager) cacheGet(ctx context.Context, ck certKey) (*tls.Certificate, e
 		Leaf:        leaf,
 	}
 	return tlscert, nil
+}
+
+func (m *Manager) CachePutByDomain(ctx context.Context, domain string, tlscert *tls.Certificate) error {
+  return m.cachePut(ctx, certKey{domain: domain}, tlscert)
 }
 
 func (m *Manager) cachePut(ctx context.Context, ck certKey, tlscert *tls.Certificate) error {
@@ -1148,9 +1158,11 @@ func validCert(ck certKey, der [][]byte, key crypto.Signer, now time.Time) (leaf
 		if pub.N.Cmp(prv.N) != 0 {
 			return nil, errors.New("acme/autocert: private key does not match public key")
 		}
+/*
 		if !ck.isRSA && !ck.isToken {
 			return nil, errors.New("acme/autocert: key type does not match expected value")
 		}
+*/
 	case *ecdsa.PublicKey:
 		prv, ok := key.(*ecdsa.PrivateKey)
 		if !ok {
@@ -1159,9 +1171,11 @@ func validCert(ck certKey, der [][]byte, key crypto.Signer, now time.Time) (leaf
 		if pub.X.Cmp(prv.X) != 0 || pub.Y.Cmp(prv.Y) != 0 {
 			return nil, errors.New("acme/autocert: private key does not match public key")
 		}
+/*
 		if ck.isRSA && !ck.isToken {
 			return nil, errors.New("acme/autocert: key type does not match expected value")
 		}
+*/
 	default:
 		return nil, errors.New("acme/autocert: unknown public key algorithm")
 	}
